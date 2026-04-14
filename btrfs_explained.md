@@ -62,19 +62,45 @@ number** is the authoritative one.
 
 Translates logical addresses -> physical disk locations . 
 
-### Extent Tree
+### How Data Is Stored — Extents
 
-Tracks every allocated region on disk and a **reference count** — how many things point to it. When ref count reaches 0, the space is free. This is the secret behind snapshots.
+Btrfs does not store files byte-by-byte in fixed-size blocks like ext4 does.
+Instead it uses **extents**.
 
-### FS Tree
+An extent is a **contiguous region of disk space** described by two numbers:
+- `bytenr` — the starting byte address (in btrfs's logical address space)
+- `length` — how many bytes long it is
 
-Where files and directories live. Each subvolume has its own FS tree. Stores inodes, directory entries, and extent pointers (which disk regions belong to which file).
+A single file can be made up of multiple extents scattered across the disk.
+
+ Here is how an extent works: It uses dynamic delayed allocation by storing data in RAM until it reaches a certain threshold. Then, the system finds a contiguous block of free space on the hard disk and writes the raw data. Finally, it dynamically updates the metadata using self-balancing B-tree data structures: it updates the extent pointer in the FS Tree (the subvolume), which is tracked by the master Root Tree, while the Chunk Tree keeps track of where everything is physically stored.
+
+```
+File: photo.jpg  (3.2 MB)
+  Extent 1: logical address 0x4A000000, length 1MB
+  Extent 2: logical address 0x7F200000, length 2MB
+  Extent 3: logical address 0x1C800000, length 0.2MB
+```
+
+
+
+### Subvolume = An FS Tree
+
+In Btrfs, a subvolume is literally just an independent File System B-Tree (FS Tree). It holds all the directories, inodes (metadata leaves), and extent pointers for that specific namespace.
+
+### The Root Tree Entry = The Pointer 
+
+How does the system keep track of all these subvolumes? It uses a master tree called the "Tree of Tree Roots".
 
 ### Checksum Tree
 
 Stores a checksum for every data extent. On every read, btrfs recomputes and compares. Corruption is caught silently.
 
----
+
+
+
+### A reference counter (refcount)
+ counts the number of B-trees pointing to the same raw data. When it reaches 0, the system marks that space on the hard disk as free and available to be overwritten
 
 ## Simulating a File Insertion
 
