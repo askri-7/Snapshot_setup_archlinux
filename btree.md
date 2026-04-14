@@ -62,3 +62,4 @@ A B-tree is a sorted, balanced, multi-key tree sized to match disk blocks. It is
 
 Result: O(log n) for everything, always balanced, minimal disk reads
 ```
+![it's just a tree]( https://github.com/askri-7/Snapshot_Btrfs_arch/blob/3bc781421588dd9f1a9f83f27037e47ab8b60f1a/tree.jpg)
