@@ -14,12 +14,12 @@ It was invented in 1971 at Boeing Research Labs specifically for one problem: **
 
 ## Key Characteristics
 
-- Each node holds **multiple keys** — not just one like a binary tree
+
 - All **leaf nodes are at the same level** — the tree is always perfectly balanced
-- Keys inside each node are kept in **sorted order**
+
 - Every internal node with N keys has exactly **N+1 children**
-- A node of order M can have **at most M children** and **M-1 keys**
-- Every non-root node must be **at least half full**
+- A B tree of order M can have in each node **at most M children** and **M-1 keys**
+-The minimum number of keys in each node **is half of the maximum capacity m**
 
 This last point is what keeps the tree balanced during deletions.
 
@@ -27,7 +27,7 @@ This last point is what keeps the tree balanced during deletions.
 
 ## The Three Types of Nodes
 
-![B-tree node types](https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/B-tree.svg/800px-B-tree.svg.png)
+![B-tree node types](https://github.com/askri-7/Snapshot_Btrfs_arch/blob/01666f5132a527b8442e9b7ebc3c135c7eb15e38/btree.png)
 
 | Node | Role |
 |---|---|
@@ -52,89 +52,13 @@ That difference is why every database and filesystem uses B-trees.
 
 ---
 
-## Insertion — What Happens
 
-New keys are **always inserted at the leaf level**. The tree then fixes itself upward if needed.
 
-### Case 1 — The leaf has space
-
-Find the right leaf, insert the key in sorted order. Done.
-
-![Simple insertion into B-tree](https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Insertion-3.png/640px-Insertion-3.png)
-
-### Case 2 — The leaf is full → Split
-
-When a leaf is full and a new key arrives:
-
-1. The node **splits in two**
-2. The **middle key is pushed up** to the parent
-3. Left half stays, right half becomes a new node
-4. If the parent is also full → it splits too → propagates upward
-5. If the root splits → a **new root is created** and the tree grows by one level
-
-![B-tree node splitting](https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/B-tree-splitt.png/640px-B-tree-splitt.png)
-
-This is why the tree always stays balanced — growth only happens at the root, and every leaf stays at the same depth.
-
----
-
-## Deletion — What Happens
-
-Deletion is more complex than insertion. There are two main cases.
-
-### Case 1 — Delete from a leaf with enough keys
-
-Find the key, remove it. The node still has at least M/2 - 1 keys. Done.
-
-![Deletion from B-tree step 1](https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Delete-key-from-Btree-1.png/640px-Delete-key-from-Btree-1.png)
-
-### Case 2 — The node becomes too empty → Borrow or Merge
-
-After deletion, if a node falls below the minimum number of keys, btrfs has two options:
-
-**Option A — Borrow from a sibling**
-
-If a neighboring sibling has extra keys, rotate one key through the parent.
-
-![Deletion borrow from sibling](https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Delete-key-from-Btree-2.png/640px-Delete-key-from-Btree-2.png)
-
-**Option B — Merge nodes**
-
-If no sibling has spare keys, merge the node with a sibling and pull a key down from the parent. This can propagate upward. If the root loses its last key, it is deleted and the tree shrinks by one level.
-
-![Deletion merge nodes](https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Delete-key-from-Btree-3.png/640px-Delete-key-from-Btree-3.png)
-
-### Case 3 — Delete from an internal node
-
-You can't just remove a key from an internal node because it acts as a separator between children. Instead:
-
-1. Replace it with its **in-order successor** (the smallest key in the right subtree)
-2. Delete that successor from the leaf level
-3. Apply borrowing or merging if needed
-
----
-
-## The Effect on Tree Shape
-
-| Operation | Effect |
-|---|---|
-| Insert into non-full leaf | No shape change |
-| Insert causes split | Tree may grow by one level at the root |
-| Delete from full-enough leaf | No shape change |
-| Delete causes merge | Tree may shrink by one level at the root |
-| Delete causes borrow | Parent key rotates, shape stays the same |
-
-The tree **only ever grows or shrinks at the root** — this is what keeps all leaves at the same depth at all times.
-
----
 
 ## In Summary
 
 ```
-B-tree = sorted, balanced, multi-key tree sized to match disk blocks
-
-Insertion → always at the leaf → split upward if full → tree grows at root
-Deletion  → always at the leaf → borrow or merge if too empty → tree shrinks at root
+A B-tree is a sorted, balanced, multi-key tree sized to match disk blocks. It is self-balancing because, after a deletion or insertion, it dynamically adjusts itself to maintain the characteristics stated above.
 
 Result: O(log n) for everything, always balanced, minimal disk reads
 ```
