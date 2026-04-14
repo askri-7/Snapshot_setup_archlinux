@@ -1,4 +1,4 @@
-# B-Tree — What It Is and How It Works
+# B-Tree 
 
 ---
 
