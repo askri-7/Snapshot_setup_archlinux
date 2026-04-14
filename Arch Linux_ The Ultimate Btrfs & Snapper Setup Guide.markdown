@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="assets/arch_logo.png" alt="Arch Linux Logo" width="400">
-</p>
+
 
 # Arch Linux: The Ultimate Btrfs & Snapper Setup Guide
 
@@ -14,7 +12,7 @@ This guide provides a comprehensive walkthrough for installing Arch Linux using 
 | :--- | :--- |
 | [Archinstall](https://wiki.archlinux.org/title/Archinstall) | Official Arch Linux installation script documentation. |
 | [Btrfs](https://wiki.archlinux.org/title/Btrfs) | Detailed guide on Btrfs filesystem features and management. |
-| [Snapper](https://wiki.archlinux.org/title/Snapper) | Tool for managing Btrfs snapshots. |
+| [Snapper](https://wiki.archlinux.org/title/Snapper) | Tool for managing Btrfs subvolume snapshots. |
 | [GRUB](https://wiki.archlinux.org/title/GRUB) | The GRUB bootloader configuration and usage. |
 
 ---
@@ -65,37 +63,23 @@ Virtual machine images perform poorly on CoW filesystems. Disable CoW for the li
 chattr +C /var/lib/libvirt/images
 ```
 
-### User Customization
-1. **Set Display Name:** Update your display name in the `/etc/passwd` file:
-   ```bash
-   chfn -f "Your Full Name" your_username
-   ```
-2. **Configure Bash Aliases:** Edit your `.bashrc` to add preferred aliases:
-   ```bash
-   echo "alias ls='ls -lh --color=auto'" >> ~/.bashrc
-   ```
+### Reconfigure GRUB for Snapshots
+To allow GRUB to read Btrfs snapshots, `/boot` must exist on the Btrfs partition, and the bootloader files go to `/efi`.
 
-### Relocate GRUB to /boot
-To ensure rollback consistency, the GRUB directory should reside in `/boot` (on the Btrfs root) rather than the EFI partition.
-
-1. **Remove the existing GRUB directory from the EFI path:**
-   ```bash
-   rm -rf /efi/grub
-   ```
-2. **Install GRUB into the root file system:**
+1. **Remove the old path:** `rm -rf /efi/grub`.
+2. **Re-install GRUB:**
    ```bash
    grub-install --target=x86_64-efi --efi-directory=/efi --boot-directory=/boot --bootloader-id=Arch
    ```
-3. **Generate the GRUB configuration:**
+3. **Generate the config:**
    ```bash
    grub-mkconfig -o /boot/grub/grub.cfg
    ```
-4. **(Optional) Manual Boot Entry:** If a boot entry is not automatically created, use `efibootmgr`:
+4. **(Optional) Fix EFI boot entry:**
    ```bash
-   efibootmgr --create --disk /dev/sda --part 1 --label "Arch Linux" --loader /EFI/Arch/grubx64.efi
+   efibootmgr --create --disk /dev/sda --part 1 --label "Arch" --loader /EFI/Arch/grubx64.efi
    ```
-
-**Exit Chroot:** Once finished, type `exit` and then `reboot`.
+5. Type `exit` and then `reboot`.
 
 ---
 
@@ -109,6 +93,8 @@ Install an AUR helper like `yay`, then install the snapshot stack:
 sudo pacman -S snapper snap-pac grub-btrfs inotify-tools
 yay -S btrfs-assistant
 ```
+- **snap-pac:** Automates pacman pre/post snapshots.
+- **grub-btrfs:** Automatically adds snapshots to the GRUB boot menu.
 
 ### Initialize Snapper
 Create the base configurations for your root and home directories:
@@ -142,20 +128,43 @@ Ensure you always have a restore point by enabling timeline timers:
 sudo systemctl enable --now snapper-timeline.timer
 sudo systemctl enable --now snapper-cleanup.timer
 ```
-
-### Undo Pacman Changes (Live)
-If a system update breaks a package, you can revert it live:
-1. **Check snapshot IDs:** `snapper -c root list`.
-2. **Review changes:** `snapper -c root status 1..2`.
-3. **Revert changes:** `snapper -c root undochange 1..2`.
-
+Note: To save disk space, it is highly recommended to disable automatic timeline snapshots for your home directory while keeping them enabled for the root system. Run this command to update the configuration:
+```
+ sudo snapper -c home set-config TIMELINE_CREATE="no".
+```
 ### Full System Rollback
-If the system becomes entirely unbootable:
+
+  If the system becomes entirely unbootable:
+---
+
+
+*(This highlights the exact remount command needed before running the rollback or opening the GUI.)*
+### Full System Rollback (The Manual "Subvolid 5" Method)
+If the system becomes entirely unbootable, or if `snapper rollback` fails, you can manually replace the broken root subvolume by mounting the top-level Btrfs tree.
+
 1. Reboot and select **"Arch Linux Snapshots"** from the GRUB menu.
-2. Boot into a known-working snapshot.
-3. Once logged in, perform the rollback:
-   ```bash
-   snapper -c root rollback
-   ```
-4. Reboot normally.
-5. Update GRUB to sync the menu: `sudo grub-mkconfig -o /boot/grub/grub.cfg`.
+2. Boot into a known-working snapshot. *(Note: Because you booted into a snapshot, your current `/` directory is actually the good snapshot!)*
+3. **Mount the top-level Btrfs tree (subvolid=5):** Open a terminal and mount your main Arch partition to `/mnt`. *(Change `/dev/sda2` to match your actual drive, e.g., `/dev/nvme0n1p2`)*:
+```
+  sudo mount -t btrfs -o subvolid=5 /dev/sda2 /mnt
+  ```
+
+
+List the contents to verify you see your subvolumes (like @, @home, etc.)
+:
+```
+   ls -l /mnt
+```
+Move the broken root out of the way: Rename your corrupted @ subvolume so the system no longer uses it:
+ ```  
+   sudo mv /mnt/@ /mnt/@-broken
+```
+Clone the snapshot: Take a read-write snapshot of your currently running system (/) and place it exactly where the old root used to be (/mnt/@):
+```
+   sudo btrfs subvolume snapshot / /mnt/@
+```
+Cleanup and Reboot: Unmount the top-level tree and reboot the computer. It will naturally boot into your newly restored @ subvolume!
+```
+sudo umount /mnt
+reboot
+```
