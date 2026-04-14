@@ -33,7 +33,7 @@ This last point is what keeps the tree balanced during deletions.
 |---|---|
 | **Root** | Entry point. At least 1 key, at least 2 children (unless it's also a leaf) |
 | **Internal** | Holds keys and pointers to children. Between M/2 and M children |
-| **Leaf** | Bottom level. Holds keys and data. No children. All at the same depth |
+| **Leaf** | Bottom level. Holds the metadata and extent pointers that give the exact path to the raw data. No children. All at the same depth. |
 
 ---
 
