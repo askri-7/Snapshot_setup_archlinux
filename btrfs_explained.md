@@ -90,7 +90,7 @@ In Btrfs, a subvolume is literally just an independent File System B-Tree (FS Tr
 
 ### The Root Tree Entry = The Pointer 
 
-How does the system keep track of all these subvolumes? It uses a master tree called the "Tree of Tree Roots".
+How does the system keep track of all these subvolumes? It uses a master tree called the "Tree of Tree Roots" that holds pointers to the root nodes of every individual subvolume (FS Tree) on the disk.
 
 ### Checksum Tree
 
