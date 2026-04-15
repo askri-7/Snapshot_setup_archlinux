@@ -15,7 +15,7 @@ A practical step-by-step guide to setting up Snapper for automatic snapshots on 
 A deep dive into btrfs internals — how it manages data, what copy-on-write really means, how the tree structure works, and how snapshots are handled at the filesystem level.
 
 ### 🔍 [What Is a B-Tree](./btree.md)
-A focused explanation of B-trees — the data structure that btrfs (and most databases) are built on. Covers the key characteristics, and how insertion and deletion affect the tree.
+A general explanation of B-trees — the data structure that btrfs (and most databases) are built on. Covers the key characteristics.
 
 ---
 
